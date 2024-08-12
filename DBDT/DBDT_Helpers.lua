@@ -23,8 +23,13 @@ local function genMinMax(vmin,vmax)
         ["max"] = vmax,
     })
 end
+
 -- USAGE
-function DBDT:PrintHelp()
+function DBDT:Help(function_name)
+    DBDT:PrintHelp(function_name)
+end
+
+function DBDT:PrintHelp(function_name)
     local types = {"string","boolean","number","table"}
     local sany = "any"
     local sstring = "string"
@@ -32,9 +37,11 @@ function DBDT:PrintHelp()
     local stable = "table"
     local sboolean = "boolean"
     local bools = {true,false}
+    local returnObj
+    local retMsg = ""
     local genericMinMax = {
-        ["min"] = (-math.huge + 1),
-        ["max"] = (math.huge - 1),
+        ["min"] = (math.mininteger),
+        ["max"] = (math.maxinteger),
     }
     local functions = {
         ["Nilcheck"] = {
@@ -93,7 +100,7 @@ function DBDT:PrintHelp()
         },
         ["SetPrecision"] = {
             ["value"] = {
-                ["value"] = genMinMax(0,(math.huge-1)),
+                ["value"] = genMinMax(0,math.maxinteger),
                 ["type"] = snumber,
             }
         },
@@ -159,9 +166,29 @@ function DBDT:PrintHelp()
                 ["type"] = snumber,
             },
         },
+        ["PrintHelp"] = {
+            ["function_name"] = {
+                ["value"] = sany,
+                ["type"] = sstring,
+            },
+        },
+        ["ItemInfo"] = {
+            ["itemID"] = {
+                ["value"] = genMinMax(1,math.maxinteger),
+                ["type"] = snumber,
+            },
+        },
     }
 
-    DBDT:DBPrint(functions,true,true,"DBDT - Help",false)
+    if DBDT:Nilcheck(function_name,"boolean") ~= false then
+        returnObj = functions[function_name]
+        retMsg = "DBDT - Help: "..function_name
+    else
+        returnObj = functions
+        retMsg = "DBDT - Help"
+    end
+
+    DBDT:DBPrint(returnObj,true,true,retMsg,false)
 end
 
 -- GLOBAL HELPER FUNCTIONS
@@ -197,7 +224,7 @@ function DBDT:Numcheck(payload)
     if (DBDT:Typecheck(payload,"number") == false) then
         return 0
     else
-        return DBDT:Clamp(payload,(-math.huge+1),(math.huge-1))
+        return DBDT:Clamp(payload,(math.mininteger),(math.maxinteger))
     end
 end
 
@@ -321,7 +348,7 @@ end
 function DBDT:ItemInfo(itemID)
     if DBDT:Typecheck(itemID,"number") then
         local tmp={}
-        tmp["itemName"],tmp["itemLink"],tmp["itemQuality"],tmp["itemLevel"],tmp["itemMinLevel"],tmp["itemType"],tmp["itemSubType"],tmp["itemStackCount"],tmp["itemEquipLoc"],tmp["itemTexture"],tmp["sellPrice"],tmp["classID"],tmp["subclassID"],tmp["bindType"],tmp["expansionID"],tmp["setID"],tmp["isCraftingReagent"] = GetItemInfo(itemID)
-        DBDT:DBPrint({["ItemID:"] = itemID,["ItemData"] = tmp}, true, true, "DBDT - ItemInfo", false)
+        tmp["itemName"],tmp["itemLink"],tmp["itemQuality"],tmp["itemLevel"],tmp["itemMinLevel"],tmp["itemType"],tmp["itemSubType"],tmp["itemStackCount"],tmp["itemEquipLoc"],tmp["itemTexture"],tmp["sellPrice"],tmp["classID"],tmp["subclassID"],tmp["bindType"],tmp["expansionID"],tmp["setID"],tmp["isCraftingReagent"] = GetItemInfo(DBDT:Clamp(itemID,1,math.maxinteger))
+        DBDT:DBPrint({["ItemID"] = itemID,["ItemData"] = tmp}, true, true, "DBDT - ItemInfo", false)
     end
 end
