@@ -1,0 +1,9 @@
+## Interface: 100000
+## Title: Danboy's Reputation Tracker
+## Notes: Dumb experiment to track reputation.
+## Author: Danboy Bebace
+## Version: 0a
+## SavedVariablesPerCharacter: DBRT_PerChar
+## SavedVariables: DBRT_Global
+
+DBRT.lua

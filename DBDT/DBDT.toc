@@ -1,0 +1,13 @@
+## Interface: 110000
+## Title: Danboy's Debug Tool
+## Author: Danboy Bebace
+## Version: 0.1a
+## OptionalDeps: DevTool, WeakAuras
+
+
+# Libraries (?)
+Libs\embeds.xml
+
+# My stuff
+DBDT_Helpers.lua
+DBDT_Main.lua
