@@ -1,5 +1,6 @@
 -- SETUP
 local DBDT = _G["DBDT"]
+local DBDebugTable = _G["DBDebugTable"]
 local dt = false
 local DB_TIMED_EVENT = false
 _G["DB_TIMED_EVENT"] = DB_TIMED_EVENT
@@ -56,6 +57,7 @@ end
 
 function DBDT:PrintInit()
     DBDT:DBPrint(DB_Dependencies, true, false, "DBDT - Dependencies", false)
+    DBDT:DBPrint(DBDebugTable, false, false, "DBDT - Debug Table", false)
     DBDT:DBPrint(buildInfo, false, true, "DBDT - Build Info", false)
 end
 

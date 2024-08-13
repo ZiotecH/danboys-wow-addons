@@ -7,16 +7,53 @@ local DBDT = addonTable.DBDT
 
 -- add global reference to the addon object
 _G["DBDT"] = addonTable.DBDT
+_G["DBDebugTable"] = DBDebugTable
+local DBDebugTable = {}
+local fontList = {}
+local SharedMedia = false
+
+if LibStub then
+    SharedMedia = LibStub("LibSharedMedia-3.0");
+    fontList = {
+        ["camb"] = SharedMedia:Fetch("font", "cambria"),
+        ["math"] = SharedMedia:Fetch("font", "DejaVuMathTeXGyre"),
+        ["dsans"] = SharedMedia:Fetch("font", "DejaVuSans"),
+        ["code"] = SharedMedia:Fetch("font", "DejaVuSansCode"),
+        ["dmono"] = SharedMedia:Fetch("font", "DejaVuSansMono"),
+        ["mei"] = SharedMedia:Fetch("font", "meiryo"),
+        ["noto"] = SharedMedia:Fetch("font", "NotoSans"),
+        ["nmono"] = SharedMedia:Fetch("font", "NotoSansMono"),
+        ["rmono"] = SharedMedia:Fetch("font", "RobotoMono"),
+        ["seg"] = SharedMedia:Fetch("font", "segoeui"),
+        ["ubun"] = SharedMedia:Fetch("font", "Ubuntu"),
+        ["umono"] = SharedMedia:Fetch("font", "UbuntuMono"),
+    }
+end
+
+DBDebugTable["SharedMedia"] = SharedMedia
 
 -- DB_Dependencies setup
 local DB_Dependencies = {["DevTool"] = false, ["WeakAuras"] = false}
 for key, value in pairs(DB_Dependencies) do
-    DB_Dependencies[key] = ((_G[key] and true) or false)
+    DB_Dependencies[key] = (C_AddOns.IsAddOnLoaded(key) or false)
 end
 _G["DB_Dependencies"] = DB_Dependencies
 local dbdtstart = "=== DBDT ==="
 local dbdtend = "=== END ==="
 
+-- Set min/max to known good numbers
+local DB_Integers = {["min"] = -1e15,["max"] = 1e15}
+_G["DB_Integers"] = DB_Integers
+
+-- Some global variable stuff
+local bCT = {
+    [true] = 1,
+    [false] = 0,
+}
+_G["DB_bct"] = bCT
+
+
+-- ???
 local function genMinMax(vmin,vmax)
     return ({
         ["min"] = vmin,
@@ -40,8 +77,8 @@ function DBDT:PrintHelp(function_name)
     local returnObj
     local retMsg = ""
     local genericMinMax = {
-        ["min"] = (math.mininteger),
-        ["max"] = (math.maxinteger),
+        ["min"] = (DB_Integers["min"]),
+        ["max"] = (DB_Integers["max"]),
     }
     local functions = {
         ["Nilcheck"] = {
@@ -100,7 +137,7 @@ function DBDT:PrintHelp(function_name)
         },
         ["SetPrecision"] = {
             ["value"] = {
-                ["value"] = genMinMax(0,math.maxinteger),
+                ["value"] = genMinMax(0,DB_Integers["max"]),
                 ["type"] = snumber,
             }
         },
@@ -174,10 +211,16 @@ function DBDT:PrintHelp(function_name)
         },
         ["ItemInfo"] = {
             ["itemID"] = {
-                ["value"] = genMinMax(1,math.maxinteger),
+                ["value"] = genMinMax(1,DB_Integers["max"]),
                 ["type"] = snumber,
             },
         },
+        ["FindMinMax"] = {
+            ["power"] = {
+                ["value"] = genMinMax(0,DB_Integers["max"]),
+                ["type"] = snumber
+            }
+        }
     }
 
     if DBDT:Nilcheck(function_name,"boolean") ~= false then
@@ -203,7 +246,11 @@ function DBDT:Nilcheck(payload,returntype)
         ["string"] = "",
         ["number"] = 0,
         ["boolean"] = false,
-        ["table"] = {}
+        ["table"] = {},
+        ["s"] = "",
+        ["n"] = 0,
+        ["b"] = false,
+        ["t"] = {},
     }
 
     -- nilcheck the payload
@@ -224,15 +271,15 @@ function DBDT:Numcheck(payload)
     if (DBDT:Typecheck(payload,"number") == false) then
         return 0
     else
-        return DBDT:Clamp(payload,(math.mininteger),(math.maxinteger))
+        return DBDT:Clamp(payload,(DB_Integers["min"]),(DB_Integers["max"]))
     end
 end
 
 function DBDT:Clamp(value,vmin,vmax)
     -- Nilcheck
     value = DBDT:Nilcheck(value, "number")
-    vmin = DBDT:Nilcheck(vmin, "number")
-    vmax = DBDT:Nilcheck(vmax, "number")
+    if not DBDT:Nilcheck(vmin,"boolean") then vmin = DB_Integers["min"] end
+    if not DBDT:Nilcheck(vmax,"boolean") then vmax = DB_Integers["max"] end
     
     -- Sanity
     if vmin == vmax then
@@ -348,7 +395,200 @@ end
 function DBDT:ItemInfo(itemID)
     if DBDT:Typecheck(itemID,"number") then
         local tmp={}
-        tmp["itemName"],tmp["itemLink"],tmp["itemQuality"],tmp["itemLevel"],tmp["itemMinLevel"],tmp["itemType"],tmp["itemSubType"],tmp["itemStackCount"],tmp["itemEquipLoc"],tmp["itemTexture"],tmp["sellPrice"],tmp["classID"],tmp["subclassID"],tmp["bindType"],tmp["expansionID"],tmp["setID"],tmp["isCraftingReagent"] = GetItemInfo(DBDT:Clamp(itemID,1,math.maxinteger))
+        tmp["itemName"],tmp["itemLink"],tmp["itemQuality"],tmp["itemLevel"],tmp["itemMinLevel"],tmp["itemType"],tmp["itemSubType"],tmp["itemStackCount"],tmp["itemEquipLoc"],tmp["itemTexture"],tmp["sellPrice"],tmp["classID"],tmp["subclassID"],tmp["bindType"],tmp["expansionID"],tmp["setID"],tmp["isCraftingReagent"] = GetItemInfo(DBDT:Clamp(itemID,1,DB_Integers["max"]))
         DBDT:DBPrint({["ItemID"] = itemID,["ItemData"] = tmp}, true, true, "DBDT - ItemInfo", false)
     end
+end
+
+function DBDT:PadNumber(inputnumber,targetpower,padbehind)
+    padbehind = DBDT:Nilcheck(padbehind,"boolean")
+    if DBDT:Typecheck(targetpower,"number") then
+        targetpower = DBDT:Clamp(targetpower,0,1000)
+    end
+
+    
+    local returnString = tostring(inputnumber)
+    local numeraltarget = targetpower
+    local zeroes = -1 --We assume a minimum of 0.
+    if DBDT:Typecheck(inputnumber,"number") then
+        while inputnumber < numeraltarget do
+            zeroes = zeroes + 1
+            numeraltarget = DBDT:Clamp(numeraltarget / 10,1,DB_Integers["max"])
+        end
+        
+        while zeroes > 0 do
+            if padbehind then
+                returnString = returnString.."0"
+            else
+                returnString = "0"..returnString
+            end
+        end
+    end
+
+    return returnString
+end
+
+function DBDT:RecursiveTableSearch(inputtable,passedcount)
+    passedcount = DBDT:Nilcheck(passedcount,"number")
+    local returnTable = {}
+    local count = 0
+    local tmpKey = false
+    local subcount = 0
+    if DBDT:Typecheck(inputtable,"table") then
+        for key, value in pairs(inputtable) do
+            count = count + 1
+                tmpKey = DBDT:Nilcheck(key)
+                if tmpKey == false then
+                    tmpKey = "subtable_"..DBDT:PadNumber(count,4)
+                end
+            if DBDT:Typecheck(value,"table") then
+                subcount = subcount + 1
+                returnTable[tmpKey] = DBDT:RecursiveTableSearch(value,subcount)
+            else
+                subcount = subcount + 1
+                returnTable[tmpKey]["subvalue_"..DBDT:PadNumber(subcount,4)] = value
+            end
+        end
+    else
+        returnTable["subvalue_"..DBDT:PadNumber(passedcount,4)] = inputtable
+    end
+    return returnTable
+end
+
+function DBDT:Find(what,where)
+    local searchTable = {
+        ["found"] = false,
+        ["value"] = {},
+    }
+
+    if what ~= false then
+        what = DBDT:Nilcheck(what,"boolean")
+        if what == false then
+            return searchTable
+        end
+    end
+    
+    local valType = type(what)
+    local count = 0
+    local deflatedTable = DBDT:RecursiveTableSearch(where)
+    for key,value in pairs(deflatedTable) do
+        local submatched = false
+        -- Compare
+        if valType == "string" then
+            submatched = (string.lower(tostring(value)) == string.lower(what))
+        else
+            submatched = (value == what)
+        end
+        -- Found something?
+        if submatched then
+            count = count + 1
+            searchTable["found"] = (submatched or searchTable["found"])
+            searchTable["value"]["match_"..DBDT:PadNumber(count,4)] = {["key"]=key,["value"]=value}
+        end
+    end
+
+    return searchTable
+end
+
+function DBDT:FindMinMax(power)
+    --Nilcheck
+    power = DBDT:Nilcheck(power)
+    if power == false then
+        power = 5000
+    end
+
+    local returnTable = {
+        ["value"] = 0,
+        ["power"] = power
+    }
+    --local tmp0,tmp1,tmp2,tmp3,tmp4,tmp5,tmpPower = 0
+
+    -- Count
+    local tmp = math.huge
+    while tmp == math.huge do
+        tmp = math.pow(2,power)
+        if tmp == math.huge then
+            power = power - 1
+        end
+    end
+    returnTable["power"] = power
+    returnTable["value"] = {
+        ["min"] = -tmp,
+        ["max"] = tmp,
+    }
+
+    --Return
+    return returnTable
+end
+
+function DBDT:RTC(value,target)
+    value = DBDT:Clamp(value)
+    target = DBDT:Clamp(target)
+
+    return (math.floor(value/target)*target)
+end
+
+function DBDT:AllAbove(value,limit)
+    limit = DBDT:Nilcheck(limit,"number")
+    value = DBDT:Nilcheck(value)
+    local retbool = false
+
+    if not value then
+        return retbool
+    elseif DBDT:Typecheck(value,"table") then
+        for key,value in pairs(value) do
+            retbool = (retbool and (value > limit))
+        end
+    elseif DBDT:Typecheck(value,"number") then
+        retbool = (value > limit)
+    end
+
+    return retbool
+end
+
+function DBDT:EQ(val1,val2)
+    return (val1 == val2)
+end
+
+function DBDT:NE(val1,val2)
+    return (val1 ~= val2)
+end
+
+function DBDT:GenDebugString(object,id,message)
+    object = DBDT:Nilcheck(object)
+    id = DBDT:Nilcheck(id)
+    message = DBDT:Nilcheck(message)
+    local correctformat = (object and id)
+    local hasmessage = (message and true)
+    if correctformat then
+        local generatedString = tostring(object).."["..tostring(id).."]"
+        if hasmessage then
+            generatedString = generatedString.." - "..tostring(message)
+        end
+        return generatedString
+    end
+end
+
+function DBDT:GetFont(sAlias)
+    DBDT:Nilcheck(sAlias)
+    if not sAlias then
+        return nil
+    end
+
+    if (SharedMedia or false) then
+        if (fontList[sAlias] or false) then
+            return fontList[sAlias]
+        else
+            return nil
+        end
+    else
+        return nil
+    end
+end
+
+-- Dynamic gen stuff
+-- Generate dynamic min/max
+DB_Integers = DBDT:FindMinMax(5000)["value"]
+if DBDT:NE(_G["DB_Integers"],DB_Integers) then
+    _G["DB_Integers"] = DB_Integers
 end
