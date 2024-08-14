@@ -1,11 +1,11 @@
 -- SETUP
 local DBDT = _G["DBDT"]
-local DBDebugTable = _G["DBDebugTable"]
+local DBDebugTable = DBDT["DBDebugTable"]
 local dt = false
 local DB_TIMED_EVENT = false
-_G["DB_TIMED_EVENT"] = DB_TIMED_EVENT
+DBDT["DB_TIMED_EVENT"] = DB_TIMED_EVENT
 local dbdt_timer_status = {["Timer"] = DB_TIMED_EVENT, ["IsCancelled"] = false}
-local DB_Dependencies = _G["DB_Dependencies"]
+local DB_Dependencies = DBDT["DB_Dependencies"]
 
 -- VARIABLES
 
@@ -14,6 +14,7 @@ local tWA = DB_Dependencies["WeakAuras"]
 
 local buildInfo = {}
 buildInfo["buildVersion"], buildInfo["buildNumber"], buildInfo["buildDate"], buildInfo["interfaceVersion"], buildInfo["localizedVersion"], buildInfo["buildInfo"] = GetBuildInfo()
+DBDT["buildInfo"] = buildInfo
 
 -- ALIASED HELPER FUNCTIONS
 local Nilcheck = DBDT.Nilcheck --(payload,"type")
