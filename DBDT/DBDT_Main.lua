@@ -1,5 +1,6 @@
 -- SETUP
 local DBDT = _G["DBDT"]
+local me = DBDT["name"]
 local DBDebugTable = DBDT["DBDebugTable"]
 local dt = false
 local DB_TIMED_EVENT = false
@@ -16,10 +17,7 @@ end
 local tDT = DB_Dependencies["DevTool"]
 local tWA = DB_Dependencies["WeakAuras"]
 local tBG = DB_Dependencies["BugGrabber"]
-
-local buildInfo = {}
-buildInfo["buildVersion"], buildInfo["buildNumber"], buildInfo["buildDate"], buildInfo["interfaceVersion"], buildInfo["localizedVersion"], buildInfo["buildInfo"] = GetBuildInfo()
-DBDT["buildInfo"] = buildInfo
+local tCQ = DB_Dependencies["Clique"]
 
 -- ALIASED HELPER FUNCTIONS
 local Nilcheck = DBDT.Nilcheck --(payload,"type")
@@ -28,49 +26,55 @@ local DBPrint = DBDT.DBPrint --(payload, printStart, printEnd, message, multi)
 
 -- MAIN FUNCTIONS
 function DBDT:StartTimer()
-    if (DBDT:CheckTimer(true) == false) then
-        DB_TIMED_EVENT = C_Timer.NewTimer(0.5, function()
-            if tWA then
-                WeakAuras.ScanEvents("DB_TIMED_EVENT");
-            end
-            DBDT.StartTimer()
-        end,
-        1)
+    if DBDT:Not(DBDT:CheckTimer(true)) then
+        DB_TIMED_EVENT = C_Timer.NewTicker(0.5, DBDT.FireEvent)
     end
     DBDT:CheckTimer()
 end
 
 function DBDT:StopTimer()
-    if (DBDT:CheckTimer(true) == true) then
-        DB_TIMED_EVENT:Cancel()
-    end
+    if DBDT:CheckTimer(true) then DB_TIMED_EVENT = false end
     DBDT:CheckTimer()
 end
 
 function DBDT:CheckTimer(internal)
-    internal = DBDT:Nilcheck(internal)
-    dbdt_timer_status["Timer"] = ((DB_TIMED_EVENT == false) or type(DB_TIMED_EVENT))
-    if DB_TIMED_EVENT ~= false then
-        dbdt_timer_status["IsCancelled"] = ((DB_TIMED_EVENT:IsCancelled() and true) or false)
-    else
-        dbdt_timer_status["IsCancelled"] = false
-    end
-    if (internal == false) and (DB_TIMED_EVENT ~= false) then
-        DBDT:DBPrint(dbdt_timer_status,true,true,"DBDT - CheckTimer",false)
-    end
-    return ((DB_TIMED_EVENT ~= false and true) or false)
+    internal = DBDT:Boolcheck(internal)
+    DBDT["DB_TIMED_EVENT"] = DB_TIMED_EVENT
+    return DBDT:Boolcheck(DB_TIMED_EVENT)
+end
+
+function DBDT:FireEvent()
+    if tWA then WeakAuras.ScanEvents("DB_TIMED_EVENT") end
 end
 
 -------------------------------------------------
 --                  INIT FUNC                  --
 -------------------------------------------------
 function DBDT:PrintInit()
+    local Warnings = 0
+    local ReportString = nil
+    local WarnColor = DBDT["ColorTable"]["Salmon"]
+    if DBDT:Boolcheck(DBDebugTable["Test Reports"]) then
+        Warnings = DBDT:CountChildren(DBDebugTable["Test Reports"]["DB Global Init"])
+    end
+    if Warnings > 0 then ReportString = WarnColor:Format(Warnings) end
+    DBDT:PrintFullBuild(false)
+
+    local PT = {
+        ["Dependencies"]    = DB_Dependencies,
+        ["Debug Table"]     = DBDebugTable,
+        ["Build Info"]      = DBDT["BuildInfo"],
+        ["String Tables"]   = DBDT["StringTables"],
+        ["Faction Data"]    = DBDT["FactionData"],
+        ["Constants"]       = DBDT["CONSTANTS"],
+        ["ColorTable"]      = DBDT["ColorTable"],
+    }
     if tDT then
-        DBDT:DBPrint({DB_Dependencies,DBDebugTable,buildInfo},f,f,gds("DBDT","INIT"),f)
+        DBDT:DBPrint(PT,f,f,gds(me,"INIT",ReportString),f)
     else
         DBDT:DBPrint(DB_Dependencies, t)
         DBDT:DBPrint(DBDebugTable, f, f)
-        DBDT:DBPrint(buildInfo, f, t)
+        DBDT:DBPrint(DBDT["buildInfo"], f, t)
     end
 end
 
@@ -93,13 +97,15 @@ DBDebugTable["global_bools"] = {
 -- Set up slash commands
 if SlashCmdList then
     SlashCmdList.DBDT = function(msg)
-    	msg = msg:lower()
         local ml = DBDT:Split(msg," ")
-        local m1 = ml[1]
-        local dodb = (m1 == "debug")
-        local dodp = (m1 == "dp")
-        local dotd = (m1 == "tdebug")
-        local doii = (m1 == "item")
+        local m1 = ml[1]:lower()
+        local dodb = DBDT:EQ(m1,"debug")
+        local dodp = DBDT:EQ(m1,"dp")
+        local dotd = DBDT:EQ(m1,"tdebug")
+        local doii = DBDT:EQ(m1,"item")
+        local doqc = DBDT:EQ(m1,"quest")
+
+        --dp({["ml"]=ml,["m1"]=m1,["dodb"]=dodb,["dodp"]=dodp,["dotd"]=dotd,["doii"]=doii,["doqc"]=doqc})
 
         if dodb then
             DBDT:DBPrint(DBDT["DBDebugTable"],true,true,gds("DBDT","Console","Debug"))
@@ -108,7 +114,11 @@ if SlashCmdList then
         elseif dotd then
             DBDT:TDebug()
         elseif doii then
-            DBDT:ItemInfo(ml[2]) 
+            local IID = DBDT:Numcheck(ml[2])
+            DBDT:ItemInfo(IID)
+        elseif doqc then
+            local QID = DBDT:Numcheck(ml[2])
+            DBDT:QuestComplete(QID,true)
         else
             DBDT:DBPrint(
                 {
@@ -126,6 +136,17 @@ end
 local function Init()
     DBCol:Init()
     DBDT:PrintInit()
+    -- Import global bindings, because I'm lazy.
+    if tCQ then
+        local a,b = DBDT["StringTables"]["ExportStrings"]["Clique"],Clique:GetExportString()
+        if DBDT:NE(a,b) then
+            DBDT:Report("DBDT [Init]","Updated Clique profile.","Clique")
+            Clique:ImportBindings(Clique:DecodeExportString(a))
+        end
+    end
+
+    -- Switch to heroic on logon
+    DBDT:SetDungeonDifficulty(2)
 end
 
 -- Call init() scripts

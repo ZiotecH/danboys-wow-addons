@@ -1,7 +1,7 @@
 ## Interface: 110000 110002
 ## Title: Danboy's Debug Tool
 ## Author: Danboy Bebace
-## Version: 0.1b
+## Version: 0.2a
 ## OptionalDeps: DevTool, WeakAuras, !BugGrabber
 
 
@@ -10,5 +10,6 @@ Libs\embeds.xml
 
 # My stuff
 DBDT_Helpers.lua
+DBDT_Data.lua
 DBDT_DBCol.lua
 DBDT_Main.lua
