@@ -1,6 +1,6 @@
 # Comprehensive Changelog
 
-## [2024-08-21] - TBD
+## [2024-08-21](94b8b45c7f4fb6aed72cf84f3779421288a3a7d3)
 
 * `DBRT.toc`
   * Added `DBRT_TabardInfo.lua`
