@@ -95,7 +95,7 @@ DBDT["StringTables"] = {
                 ["Balance"]     = "",
                 ["Feral"]       = "",
                 ["Guardian"]    = "",
-                ["Restoration"] = "CkGAqvgeoHLefPLb/Pa8nkKXDtMzMzsgZmZsMWGYZYzYZMzAAAAAAAAAAAAYbwwYMMCzMzYGMjxMTLAAAAAAMAGgZAAAAAAAAMmB",
+                ["Restoration"] = "CkGAvcQZXENQPQXqed372Hg2KuMzMzsswYmxyMLDDDbssYZGAAAAAAAAAAAAbDGGjhRYmZGzgZMmZaBAAAAAgBwAMDAAAAAAAgxMAD",
             },
             ["Evoker"] = {
                 ["Devastation"]  = "",
@@ -182,14 +182,24 @@ DBDT["FactionData"] = {
         [45585] = 911,
         [64882] = 1134,
         [64884] = 1133,
-        [69210] = C_Reputation.GetGuildFactionData()["factionID"],
+        [69210] = 0,
         [83079] = 1353,
         [83080] = 1352,
         [43157] = 1090,
     },
     ["Factions"] = {
+        [68]={["name"]="Undercity",["factionID"]=68},
+        [76]={["name"]="Orgrimmar",["factionID"]=76},
+        [81]={["name"]="Thunder Bluff",["factionID"]=81},
+        [530]={["name"]="Darkspear Trolls",["factionID"]=530},
+        [911]={["name"]="Silvermoon City",["factionID"]=911},
+        [1090]={["name"]="Kirin Tor",["factionID"]=1090},
+        [1133]={["name"]="Bilgewater Cartel",["factionID"]=1133},
+        [1352]={["name"]="Huojin Pandaren",["factionID"]=1352},
+        [1168]={["name"]="Sourstout Brewmasters",["factionID"]=1168},
         [936] = {
-            ["Name"] = "Shattrath City",
+            ["name"] = "Shattrath City",
+            ["factionID"] = 936,
             ["Expansion"] = {
                 ["Name"] = "The Burning Crusade",
                 ["ID"] = 1
@@ -200,6 +210,10 @@ DBDT["FactionData"] = {
             ["Allegiance"] = "Neutral"
         },
     },
+    ["Dynamic"] = {
+    },
+    ["Lookup"] = {},
+    ["Guild"] = C_Reputation.GetGuildFactionData()
 }
 
 DBDT["CONSTANTS"] = {
@@ -238,3 +252,10 @@ end
 if DBDT:TestValue(DBDT:EQ(CONSTANTS,nil), true, true, "DB Global Init") then
     _G["CONSTANTS"] = DBDT["CONSTANTS"]
 end
+
+local guild = DBDT["FactionData"]["Guild"]
+local fdf = DBDT["FactionData"]["Factions"]
+local gfid = guild["factionID"]
+
+fdf[gfid] = guild
+DBDT["FactionData"]["Tabards"][69210] = gfid

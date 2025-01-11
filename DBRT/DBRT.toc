@@ -9,3 +9,4 @@
 
 DBRT.lua
 DBRT_TabardInfo.lua
+DBRT_EventHandling.lua

@@ -1,81 +1,16 @@
--- Stolen from DevTool, thanks guys. :)
-local _, addonTable = ... -- make use of the default addon namespace
-
----@class DBDT : AceAddon-3.0 @define DBDT_Main
-addonTable.DBDT = LibStub("AceAddon-3.0"):NewAddon("DBDT")
-local DBDT = addonTable.DBDT
-
--- add global reference to the addon object
-_G["DBDT"] = addonTable.DBDT
+local DBDT = _G["DBDT"]
 local me = DBDT["name"]
-local DBDebugTable = {}
-DBDT["DBDebugTable"] = DBDebugTable
-DBDT["DBDebugTable"]["Saved Colors"] = 0
-DBDT["DBDebugTable"]["Character Info"] = {}
-local fontList = {}
-local SharedMedia = false
-DBDT["PrintDebug"] = false                           --? <- PRINTDEBUG IS HERE :)
-DBDT["ColorTable"] = {}
-DBDT["StringTables"] = {}
-DBDT["sindent"] = "▸"
-DBDT["ListOfHearthstones"] = {}
 local ColorTable = DBDT["ColorTable"]
 local si = DBDT["sindent"]
 local t = true
 local f = false
 local buildInfo = {}
-DBDT["BuildInfo"] = buildInfo
-DBDebugTable["Console_Enabled"] = false
-
-if LibStub then
-    SharedMedia = LibStub("LibSharedMedia-3.0");
-    fontList = {
-        ["camb"] = SharedMedia:Fetch("font", "cambria"),
-        ["math"] = SharedMedia:Fetch("font", "DejaVuMathTeXGyre"),
-        ["dsans"] = SharedMedia:Fetch("font", "DejaVuSans"),
-        ["code"] = SharedMedia:Fetch("font", "DejaVuSansCode"),
-        ["dmono"] = SharedMedia:Fetch("font", "DejaVuSansMono"),
-        ["mei"] = SharedMedia:Fetch("font", "meiryo"),
-        ["noto"] = SharedMedia:Fetch("font", "NotoSans"),
-        ["nmono"] = SharedMedia:Fetch("font", "NotoSansMono"),
-        ["rmono"] = SharedMedia:Fetch("font", "RobotoMono"),
-        ["seg"] = SharedMedia:Fetch("font", "segoeui"),
-        ["ubun"] = SharedMedia:Fetch("font", "Ubuntu"),
-        ["umono"] = SharedMedia:Fetch("font", "UbuntuMono"),
-    }
-end
-
-DBDebugTable["SharedMedia"] = SharedMedia
-
--- DB_Dependencies setup
-local DB_Dependencies = {
-    ["DevTool"] = false,
-    ["WeakAuras"] = false,
-    ["!BugGrabber"] = false,
-    ["Clique"] = false,
-}
-
-for key, value in pairs(DB_Dependencies) do
-    DB_Dependencies[key] = (C_AddOns.IsAddOnLoaded(key) or false)
-end
-
-DBDT["DB_Dependencies"] = DB_Dependencies
-
-
 local dbdtstart = "=== DBDT ==="
 local dbdtend = "=== END ==="
-
--- Set min/max to known good numbers
-DBDT["DBIntegers"] = {["min"] = -1e15,["max"] = 1e15} 
+local bCT = DBDT["bCT"]
 local DB_Integers = DBDT["DBIntegers"]
-
-
--- Some global variable stuff
-local bCT = {
-    [true] = 1,
-    [false] = 0,
-}
-DBDT["bCT"] = bCT
+local DB_Dependencies = DBDT["DB_Dependencies"]
+local DBDebugTable = DBDT["DBDebugTable"]
 
 -- Toggle PrintDebug
 function DBDT:TDebug()
@@ -89,6 +24,11 @@ function DBDT:TDebug()
     )
 end
 
+function DBDT:TQII()
+    DBDT["QuickItemInfo"] = DBDT:Not(DBDT["QuickItemInfo"])
+    DBDT:Debug(DBDT["QuickItemInfo"],DBDT:GenDebugString(me,"TQII","QuickItemInfo toggled"))
+end
+
 -- ???
 local function genMinMax(vmin,vmax)
     return (
@@ -97,6 +37,10 @@ local function genMinMax(vmin,vmax)
             ["max"] = vmax,
         }
     )
+end
+
+local function qgds(id,msg)
+    return DBDT:GenDebugString(me,id,msg)
 end
 
 function dp(InputData)
@@ -315,6 +259,18 @@ function DBDT:CastHearth()
     return false
 end
 
+function DBDT:ToggleVolume(targetVolume)
+    local currentVolume = tonumber(GetCVar("Sound_MasterVolume"))
+    local volumeTable = {
+        [0.35] = 1,
+        [1] = 0.35,
+    }
+    if NE(currentVolume,1) and NE(currentVolume,0.35) then currentVolume = 1 end
+    targetVolume = DBDT:Numcheck(targetVolume,volumeTable[currentVolume])
+    SetCVar("Sound_MasterVolume",targetVolume)
+    DBDT:DBPrint(targetVolume,t,t,DBDT:GenDebugString(me,"ToggleVolume","Setting volume to:"))
+end
+
 function DBDT:GetHearths()
     return false
 end
@@ -327,6 +283,22 @@ function DBDT:Not(payload)
     -- Table,String,Number => false
     else return false
     end
+end
+
+function DBDT:Nor(Query1,Query2)
+    return DBDT:Not(Query1 or Query2)
+end
+
+function DBDT:IFELSE(test,trueVal,falseVal)
+    if test then return trueVal else return falseVal end
+end
+
+local function IFELSE(test,trueVal,falseVal)
+    return DBDT:IFELSE(test,trueVal,falseVal)
+end
+
+local function ife(a,b,c)
+    return DBDT:IFELSE(a,b,c)
 end
 
 function DBDT:Flip(payload)
@@ -431,22 +403,27 @@ function DBDT:Stringcheck(payload,fallback)
     return fallback
 end
 
+---@param Table string
+---@param Parent table
+---@param Create boolean
+---@return boolean
 function DBDT:Tablecheck(Table,Parent,Create)
     -- Sanity check
     Table = DBDT:Nilcheck(Table)
     Parent = DBDT:Nilcheck(Parent)
     Create = DBDT:Boolcheck(Create)
-    -- Check if Parent[Table] and if the user requests it create it should it not.
-    if DBDT:Typecheck(Table,"string") then
-        if DBDT:Typecheck(Parent,"table") then
-            if ((DBDT:Boolcheck(Parent[Table]) == false) and Create) then
-                Parent[Table] = {}
-                return true
-            end
-        end
-        return DBDT:Boolcheck(Table)
-    end
 
+    if (DBDT:Boolcheck(Parent) and DBDT:Typecheck(Parent,"table")) and (DBDT:Boolcheck(Table)) then
+        if DBDT:Boolcheck(Parent[Table]) then
+            return true
+        elseif DBDT:Not(DBDT:Boolcheck(Parent[Table])) and Create then
+            Parent[Table] = {}
+            return true
+        else
+            return false
+        end
+    end
+    
     -- Should never happen
     return false
 end
@@ -479,8 +456,87 @@ function DBDT:TestValue(payload,reverse,ReportFailure,Category)
     return ReturnBoolean
 end
 
-function DBDT:Report(Sender,Payload,Category)
+function DBDT:GenDebugTable(inputs,generated,parsed,returns,StackTrace,PassedTable)
+    local WasNil = {
+        ["Inputs"]      = DBDT:Not(DBDT:Boolcheck(inputs)),
+        ["Generated"]   = DBDT:Not(DBDT:Boolcheck(generated)),
+        ["Parsed"]      = DBDT:Not(DBDT:Boolcheck(parsed)),
+        ["Returns"]     = DBDT:Not(DBDT:Boolcheck(returns)),
+        ["StackTrace"]  = DBDT:Not(DBDT:Boolcheck(StackTrace)),
+        ["PassedTable"] = DBDT:Not(DBDT:Boolcheck(PassedTable)),
+    }
+
+    inputs = DBDT:Nilcheck(inputs)
+    generated = DBDT:Nilcheck(generated)
+    parsed = DBDT:Nilcheck(parsed)
+    returns = DBDT:Nilcheck(returns)
+    --StackTrace = DBDT:Nilcheck(StackTrace,debugstack())
+
+    local TablePassed = DBDT:Boolcheck(DBDT:Nilcheck(PassedTable) and DBDT:Typecheck(PassedTable,"table"))
+
+    -- Check NILs
+    local AnyNils = false
+    for k,NilValue in pairs(WasNil) do
+        AnyNils = (AnyNils and NilValue)
+    end
+    AnyNils = DBDT:Not(AnyNils)
+    
+    local PassedValues = {
+        ["Inputs"] = inputs,
+        ["Generated"] = generated,
+        ["Parsed"] = parsed,
+        ["Returns"] = returns,
+        ["PassedTable"] = PassedTable
+    }
+
+    local MyDebugTable = {
+        ["Inputs"] = {
+            ["Inputs"] = inputs,
+            ["Generated"] = generated,
+            ["Parsed"] = parsed,
+            ["Returns"] = returns,
+        },
+        ["Any Nil Inputs"] = AnyNils,
+        ["Was Table Passed"] = TablePassed,
+    }
+
+    local GeneratedDebugTable = {
+        ["Modified"] = false,
+    }
+    
+    for InputKey,InputValue in pairs(PassedValues) do
+        if DBDT:Typecheck(InputValue,"table") then
+            for key,value in pairs(InputValue) do
+                DBDT:Tablecheck(InputKey,GeneratedDebugTable,true)
+                GeneratedDebugTable[InputKey][key] = {
+                    ["Value"] = value,
+                    ["Type"] = type(value)
+                }
+            end
+        else
+            if DBDT:Not(WasNil[InputKey]) then
+                GeneratedDebugTable[InputKey] = {["Value"] = InputValue,["Type"]=type(InputValue)}
+            end
+        end
+    end
+
+    if TablePassed then
+        for k,v in pairs(PassedTable) do
+            DBDT:Tablecheck(k,GeneratedDebugTable,true)
+            GeneratedDebugTable[k] = v
+        end
+        PassedTable = GeneratedDebugTable
+        GeneratedDebugTable["Modified"] = true
+    end
+
+    DBDT:Debug(MyDebugTable,qgds("GenDebugTable","Debug Table Generated"))
+    if DBDT:Not(TablePassed) then return GeneratedDebugTable end
+end
+
+function DBDT:Report(Sender,Payload,Category,Index)
     DBDT:Tablecheck("Reports",DBDebugTable,true)
+    Index = DBDT:Stringcheck(Index,false)
+    local hasIndex = DBDT:Boolcheck(Index)
     Category = DBDT:Stringcheck(Category,"Misc")
     
     local ChangedSender = false
@@ -489,14 +545,21 @@ function DBDT:Report(Sender,Payload,Category)
     local NewPayload = DBDT:Nilcheck(Payload,"Invalid")
     if DBDT:NE(Sender,NewSender) then ChangedSender = true end
     if DBDT:NE(Payload,NewPayload) then ChangedPayload = true end
-    local ValidReport = ((DBDT:NE(Sender,"Invalid") and ChangedSender) and (DBDT:NE(Payload,"Invalid") and ChangedPayload))
+    local ValidReport = (DBDT:Not(DBDT:NE(Sender,"Invalid") and ChangedSender) and DBDT:Not(DBDT:NE(Payload,"Invalid") and ChangedPayload))
 
     local Target = nil
+    local ReportData = nil
 
     if ValidReport then
         DBDT:Tablecheck(Category, DBDebugTable["Reports"],true)
         Target = DBDebugTable["Reports"][Category]
-        table.insert(Target,{["Sender"] = Sender,["Timestamp"]=DBDT:Timestamp(),["Report"]=Payload})
+        ReportData = {["Sender"] = Sender, ["Timestamp"] = DBDT:Timestamp(), ["Report"] = Payload}
+        if hasIndex then
+            DBDT:Tablecheck(Index,Target,true)
+            table.insert(Target[Index],ReportData)
+        else
+            table.insert(Target,ReportData)
+        end
     else
         DBDT:Warn("Report","Invalid report!")
     end
@@ -599,6 +662,23 @@ function DBDT:Split(inputString, separator)
     return returnTable
 end
 
+---@param inputString string
+---@return number
+function DBDT:ExtractNumber(inputString)
+    inputString = DBDT:Nilcheck(inputString)
+    local returnTable = {}
+    local index = 0
+
+    if DBDT:Typecheck(inputString,"string") then
+        for match in string.gmatch(inputString, "(%d+)") do
+            index = index + 1
+            returnTable[index] = match
+        end
+    end
+    -- return
+    return returnTable[1]
+end
+
 function DBDT:Timestamp(StringColor)
     local s1 = "FFA9A9A9" -- Fallback to DarkGray
     StringColor = DBDT:Stringcheck(StringColor, "DarkGray")
@@ -617,26 +697,24 @@ function DBDT:TableHasValue(t1,v1)
 end
 -- Printing data
 local function dtad(payload, message, multi)
-    multi = DBDT:Nilcheck(multi,"boolean")
-    if not DBDT:Typecheck(multi,"boolean") then
-        multi = false
-    end
+    multi = DBDT:Boolcheck(multi)
 
     if (DBDT:Typecheck(payload,"table") and multi) then
         for key, value in pairs(payload) do
             DevTool:AddData(value, message)
         end
-    elseif payload ~= nil then
+    else
         DevTool:AddData(payload, message)
     end
 end
 
 function DBDT:DBPrint(payload, printStart, printEnd, message, multi)
+    payload = DBDT:Nilcheck(payload,"|cFFB22222NIL|r")
     printStart = DBDT:Nilcheck(printStart)
     printEnd = DBDT:Nilcheck(printEnd)
 
     if DB_Dependencies["DevTool"] then
-        multi = DBDT:Nilcheck(multi,"boolean")
+        multi = DBDT:Boolcheck(multi)
         dtad(payload, message, multi)
     elseif payload ~= nil then
         -- Print Start?
@@ -655,12 +733,38 @@ function DBDT:DBPrint(payload, printStart, printEnd, message, multi)
     end
 end
 
+function DBDT:QPrint(payload,addon,id,message)
+    payload = DBDT:Nilcheck(payload)
+    addon = DBDT:Nilcheck(addon,"Unknown Addon")
+    id = DBDT:Nilcheck(id,"Unknown ID")
+    message = DBDT:Nilcheck(message,"")
+    local qps = "DBDT - QPrint: "
+    if DBDT:Boolcheck(DBCol) then
+        qps = DBCol:GC("LightPink"):Format(qps)
+    end
+    if DBDT:Not(DBDT:Typecheck(payload,"table")) then
+        DEFAULT_CHAT_FRAME:AddMessage(qps..tostring(payload))
+    else
+        DEFAULT_CHAT_FRAME:AddMessage(qps.."Received table, check DevTool for more info.")
+    end
+    DBDT:DBPrint(payload,false,false,DBDT:GenDebugString(addon,id,message),false)
+end
+
+function DBDT:Debug(payload,message)
+    if DBDT["PrintDebug"] then DBDT:DBPrint(payload,false,false,message,false) end
+end
+
 function DBDT:SetPower(num, target)
     return math.max(math.ceil(num/target)*target,target)
 end
 
-function DBDT:GetPercent(current,max)
-    return string.format("%d",DBDT:Clamp(current/max,0,1)*100)
+function DBDT:GetPercent(current,max,doClamp,doDiff)
+    doClamp = DBDT:Boolcheck(DBDT:Nilcheck(doClamp,true))
+    doDiff = DBDT:Boolcheck(doDiff)
+    local perc = (current/max)
+    if doDiff then perc = (perc - 1) end
+    if doClamp then perc = DBDT:Clamp(perc,0,1) end
+    return string.format("%d",(perc*100))
 end
 
 function DBDT:GetDistance(value,target)
@@ -668,28 +772,128 @@ function DBDT:GetDistance(value,target)
     return value
 end
 
-function DBDT:ItemInfo(itemID,doReturn)
+function DBDT:ValidateItem(itemRef)
+    local itemValid = DBDT:Boolcheck(C_Item.GetItemInfoInstant(itemRef))
+    DBDT:Debug({["input"]=itemRef,["valid"]=itemValid},DBDT:GenDebugString(me,"ValidateItem","About to return validation data"))
+    return itemValid
+end
+
+function DBDT:ParseItem(itemRef)
+
+    itemRef = DBDT:Nilcheck(itemRef)
+    local validGUID = false
+    local validID = false
+    local tmp = {
+            ["itemGUID"] = false,
+            ["itemID"] = false,
+    }
+
+    if DBDT:Boolcheck(itemRef) then
+        if DBDT:Typecheck(itemRef,"string") then validGUID = DBDT:Boolcheck(itemRef)
+        elseif DBDT:Typecheck(itemRef,"number") then validID = DBDT:Boolcheck(itemRef)
+        end
+
+        if validGUID or validID then
+            if validGUID then
+                tmp["itemGUID"] = itemRef
+                tmp["itemID"] = C_Item.GetItemIDByGUID(itemRef)
+            elseif validID then
+                tmp["itemID"] = itemRef
+            end
+            tmp["itemName"],tmp["itemLink"],tmp["itemQuality"],tmp["itemLevel"],tmp["itemMinLevel"],tmp["itemType"],tmp["itemSubType"],tmp["itemStackCount"],tmp["itemEquipLoc"],tmp["itemTexture"],tmp["sellPrice"],tmp["classID"],tmp["subclassID"],tmp["bindType"],tmp["expansionID"],tmp["setID"],tmp["isCraftingReagent"] = C_Item.GetItemInfo(itemRef)
+        end
+    end
+
+    DBDT:Debug(
+        DBDT:GenDebugTable(
+            {["itemRef"]=itemRef},
+            {["validGUID"]=validGUID,["validID"]=validID},
+            nil,
+            {["tmp"]=tmp},
+            nil
+        ),
+        qgds("ParseItem","Item Parsing Results")
+    )
+    --DBDT:Debug({["Inputs"]={["itemRef"]={"value"=itemRef}},["Generated"]={["validGUID"]=validGUID,["validID"]=validID},["Return"]=tmp},qgds("ParseItem","Item Parsing Result"))
+    return tmp
+end
+
+-- Todo: Rework to always return
+function DBDT:ItemInfoByID(itemRef,doReturn)
     doReturn = DBDT:Boolcheck(doReturn)
-    if DBDT:Typecheck(itemID,"number") then
-        if C_Item.DoesItemExistByID(itemID) then
-            local tmp={}
-            tmp["itemName"],tmp["itemLink"],tmp["itemQuality"],tmp["itemLevel"],tmp["itemMinLevel"],tmp["itemType"],tmp["itemSubType"],tmp["itemStackCount"],tmp["itemEquipLoc"],tmp["itemTexture"],tmp["sellPrice"],tmp["classID"],tmp["subclassID"],tmp["bindType"],tmp["expansionID"],tmp["setID"],tmp["isCraftingReagent"] = C_Item.GetItemInfo(DBDT:Clamp(itemID,1,DB_Integers["max"]))
+    local itemGUID  = false
+    local itemID    = false
+    local debugInfo = {
+        ["inputs"] = {
+            ["itemRef"] = itemRef,
+            ["doReturn"] = doReturn,
+        },
+        ["generated"] = {
+            ["itemGUID"] = itemGUID,
+            ["itemID"] = itemID,
+        }
+    }
+
+    DBDT:Debug(DBDT:CloneTable(debugInfo),DBDT:GenDebugString(me,"ItemInfoByID","About to parse item info"))
+    if DBDT:ValidateItem(itemRef) then
+        debugInfo["checks"] = {
+            ["validated"] = true
+        }
+        if DBDT:Typecheck(itemRef,"string") then
+            itemGUID = itemRef
+            itemID = C_Item.GetItemIDByGUID(itemRef)
+        else
+            itemID = itemRef
+        end
+        local itemExists = C_Item.DoesItemExistByID(itemID)
+        debugInfo["generated"]["itemGUID"]  = itemGUID
+        debugInfo["generated"]["itemID"]    = itemID
+        debugInfo["checks"]["itemExists"]   = itemExists
+
+        if itemExists then
+            local tmp = DBDT:ParseItem(itemRef)
+            debugInfo["parsed"] = {
+                ["tmp"] = tmp
+            }
             -- Set Numbers
             local n1,n2,n3,n4,n5,n6,n7 = DBDT:Numcheck(tmp["bindType"]),DBDT:Numcheck(tmp["classID"]),DBDT:Numcheck(tmp["subclassID"]),DBDT:Numcheck(tmp["itemLevel"]),DBDT:Numcheck(tmp["itemQuality"]),DBDT:Numcheck(tmp["expansionID"]),DBDT:Numcheck(tmp["sellPrice"])
+            debugInfo["generated"]["numbers"] = {
+                ["n1"] = n1,
+                ["n2"] = n2,
+                ["n3"] = n3,
+                ["n4"] = n4,
+                ["n5"] = n5,
+                ["n6"] = n6,
+                ["n7"] = n7,
+            }
             -- Init Strings
             local s1,s2,s3,s4,s5,s6,s7 = DBDT:InitVars(7,false)
             -- Set Strings
             if n1 then s1 = DBDT:Bin(n1) end
-            if n7 then s4 = GetMoneyString(n1) end
+            if n7 then s4 = GetMoneyString(n7) end
             if n6 then s5 = DBDT:Exp(n6) end
             if n5 then s6 = DBDT:Qua(n5) end
             if DBDT:Nilcheck(tmp["itemName"]) then s7 = tmp["itemName"] end
             if DBDT:Nilcheck(tmp["itemType"]) then s2 = tmp["itemType"] end
             if DBDT:Nilcheck(tmp["itemSubType"]) then s3 = tmp["itemSubType"] end
+            debugInfo["generated"]["strings"] = {
+                ["s1"] = s1,
+                ["s2"] = s2,
+                ["s3"] = s3,
+                ["s4"] = s4,
+                ["s5"] = s5,
+                ["s6"] = s6,
+                ["s7"] = s7,
+            }
             -- Set Booleans
             local b1,b2 = DBDT:Nilcheck(tmp["isCraftingReagent"]), (true and DBDT:Nilcheck(tmp["setID"]))
+            debugInfo["generated"]["booleans"] = {
+                ["b1"] = b1,
+                ["b2"] = b2,
+            }
 
             local TempTable = {
+                ["ItemGUID"] = itemGUID,
                 ["ItemID"] = itemID,
                 ["RawData"] = tmp,
                 ["Name"] = s7,
@@ -715,6 +919,11 @@ function DBDT:ItemInfo(itemID,doReturn)
                     ["Is Set Item"] = b2,
                 },
             }
+            debugInfo["generated"]["tables"] = {
+                ["TempTable"] = TempTable
+            }
+
+            DBDT:Debug(DBDT:CloneTable(debugInfo),DBDT:GenDebugString(me,"ItemInfoByID","About to nilcheck s7"))
             if DBDT:Nilcheck(s7) then
                 if doReturn then
                     return TempTable
@@ -723,7 +932,7 @@ function DBDT:ItemInfo(itemID,doReturn)
                         TempTable,
                         true,
                         true,
-                        DBDT:GenDebugString("DBDT","ItemInfo",tostring(s7).."["..tostring(itemID).."]"),
+                        DBDT:GenDebugString("DBDT","ItemInfo",tostring(s7).." ["..tostring(itemID).."]"),
                         false
                     )
                 end
@@ -731,7 +940,132 @@ function DBDT:ItemInfo(itemID,doReturn)
                 if doReturn then return false else DBDT:DBPrint(false,t,t,DBDT:GenDebugString(me,"ItemInfo","Item returns nil"),f) end
             end
         end
+        DBDT:Debug(DBDT:CloneTable(debugInfo),DBDT:GenDebugString(me,"ItemInfoByID","Item does not exist"))
+    else
+        debugInfo["checks"] = {
+            ["validated"] = false
+        }
+        DBDT:Debug(DBDT:CloneTable(debugInfo),DBDT:GenDebugString(me,"ItemInfoByID","Failed to validate itemRef"))
     end
+end
+
+function DBDT:ItemInfoByLocation(bagID,slotID)
+    local ItemLoc = ItemLocation:CreateFromBagAndSlot(bagID,slotID)
+    local ItemInfo = {}
+    local ItemID = C_Item.GetItemID(ItemLoc)
+    ItemInfo = DBDT:ItemInfoByID(ItemID,true)
+    ItemInfo["bagID"] = bagID
+    ItemInfo["slotID"] = slotID
+
+    DBDT:Debug({
+        ["inputs"] = {
+            ["bagID"] = bagID,
+            ["slotID"] = slotID,
+        },
+        ["parsed"] = {
+            ["ItemLoc"] = ItemLoc,
+            ["ItemID"] = ItemID,
+        },
+        ["Item Info"] = ItemInfo
+    },
+    DBDT:GenDebugString(me,"ItemInfoByLocation","About to hand return ItemInfo"))
+
+    return ItemInfo
+end
+
+-- TODO: Rework so it's not a bunch of needless calls
+function DBDT:ItemInfoByGUID(itemGUID,doReturn)
+    doReturn = DBDT:Boolcheck(DBDT:Nilcheck(doReturn,true))
+    itemGUID = DBDT:Nilcheck(itemGUID,false)
+
+    DBDT:Debug({
+        ["inputs"] = {
+            ["itemGUID"] = itemGUID,
+            ["doReturn"] = doReturn
+        }
+    },
+    DBDT:GenDebugString(me,"ItemInfoByGUID","About to hand off to ItemInfoByID"))
+    if DBDT:Not(itemGUID) then
+        return false
+    else
+        return DBDT:ItemInfoByID(itemGUID,doReturn)
+    end
+end
+
+function DBDT:ItemInfo(a1,n2,b1)
+    a1 = DBDT:Nilcheck(a1,false)
+    n2 = DBDT:Nilcheck(n2,false)
+    b1 = DBDT:Boolcheck(DBDT:Nilcheck(b1,true))
+
+    local isTable = DBDT:Typecheck(a1,"table")
+    local isNumber = DBDT:Typecheck(a1,"number")
+    local isN2 = DBDT:Typecheck(n2,"number")
+    local isGUID = DBDT:Typecheck(a1,"string")
+
+    local isItemID      = false
+    local isBagLocation = false
+    local bagID,slotID = 0,0
+    local itemSlot = 0
+
+    local debugInfo = {
+        ["inputs"]={
+            ["a1"]=a1,
+            ["n2"]=n2,
+            ["b1"]=b1,
+        },
+        ["checks"] = {
+            ["isTable"] = isTable,
+            ["isNumber"] = isNumber,
+            ["isN2"] = isN2,
+            ["isGUID"] = isGUID,
+        },
+        
+    }
+
+    if isNumber then
+        a1 = DBDT:Numcheck(a1)
+        isItemID = DBDT:Boolcheck(a1 and DBDT:Not(isN2))
+        if isN2 then
+            isBagLocation = DBDT:Boolcheck(a1 and n2)
+            if isBagLocation then bagID, slotID = DBDT:Clamp(a1,-3,17),DBDT:Clamp(n2,1,C_Container.GetContainerNumSlots(a1)) end
+        end
+        -- Clamp location indecies to valid numbers
+    elseif isTable then
+        -- Is proper Item Location object
+        if DBDT:Boolcheck(a1.HasAnyLocation) then
+            -- Item location from bag
+            if DBDT:Boolcheck(a1:IsBagAndSot()) then
+                bagID,slotID = a1:GetBagAndSlot()
+            -- Item location from equipment slot
+            elseif DBDT:Boolcheck(a1:IsEquipmentSlot()) then
+                itemSlot = a1:GetEquipmentSlot()
+            end
+        end
+    elseif isGUID then
+    else
+    end
+
+    debugInfo["checks"]["isItemID"] = isItemID
+    debugInfo["checks"]["isBagLocation"] = isBagLocation
+    debugInfo["location"] = {
+        ["bagID"] = bagID,
+        ["slotID"] = slotID,
+        ["itemSlot"] = itemSlot,
+    }
+
+
+    DBDT:Debug(debugInfo,DBDT:GenDebugString(me,"ItemInfo","About to hand over to sub-handler"))
+
+    if isItemID then
+        return DBDT:ItemInfoByID(a1,b1)
+    elseif isBagLocation then
+        return DBDT:ItemInfoByLocation(bagID,slotID)
+    elseif isGUID  then
+        return DBDT:ItemInfoByGUID(a1,b1)
+    else
+        return false
+    end
+
 end
 
 function DBDT:PadNumber(inputnumber,targetpower,padbehind)
@@ -894,6 +1228,32 @@ function DBDT:FindMinMax(power)
 
     --Return
     return returnTable
+end
+
+function DBDT:Round(value,decimals)
+    value = DBDT:Numcheck(value)
+    decimals = DBDT:Numcheck(decimals,0)
+    local decimalCheck = (0.5 / (10 ^ decimals))
+    local moduloValue = (1 / 10 ^ decimals)
+    local quickRound = (value - (value % moduloValue))
+    local direction = ((value % moduloValue) >= decimalCheck)
+    if direction then return (quickRound + moduloValue) else return quickRound end
+end
+
+function DBDT:TR()
+    local rettab = {
+        ["0.01"]= {},
+        ["0.1"] = {},
+        ["1"]   = {},
+    }
+    local tmpI = 0
+    for i=0,100 do
+        tmpI = i*math.random()
+        rettab["0.01"][tostring(i).." ("..tostring(tmpI)..")"]  = DBDT:Round(tmpI,2)
+        rettab["0.1"][tostring(i).." ("..tostring(tmpI)..")"]   = DBDT:Round(tmpI,1)
+        rettab["1"][tostring(i).." ("..tostring(tmpI)..")"]     = DBDT:Round(tmpI,0)
+    end
+    DBDT:DBPrint(rettab,false,false,"Test Rounding")
 end
 
 function DBDT:RTC(value,target)
@@ -1322,7 +1682,8 @@ end
 function DBDT:GenerateFactionIndex(FactionTable)
 end
 
-function DBDT:GetAllKnownFactions()
+function DBDT:GetAllKnownFactions(UpdateDatabase)
+    UpdateDatabase = DBDT:Boolcheck(UpdateDatabase)
     local oldSort = C_Reputation.GetReputationSortType()
     C_Reputation.SetReputationSortType(2)
     DBDT:ExpandAllFactionHeaders()
@@ -1368,34 +1729,62 @@ function DBDT:GetAllKnownFactions()
         local NameString = DBDT["sindent"].." "..CurrentName.." ("..tostring(CurrentFactionID)..")"
 
         if CurrentIsHeader and DBDT:Nilcheck(RootTable[CurrentName]) then
-            RootTable[CurrentName] = nil
-            CurrentName = ColorData["FactionHeader"]["start"]..CurrentName..ColorData["FactionHeader"]["end"]
-            RootTable[CurrentName] = {}
+            if UpdateDatabase then
+                DBDT:Tablecheck(CurrentName,DBDT["FactionData"]["Dynamic"],true)
+            else
+                RootTable[CurrentName] = nil
+                CurrentName = ColorData["FactionHeader"]["start"]..CurrentName..ColorData["FactionHeader"]["end"]
+                RootTable[CurrentName] = {}
+            end
             PrevMainHeader = CurrentName
             PrevSubHeader = false
         elseif CurrentIsHeader then
-            CurrentName = ColorData["FactionSubHeader"]["start"]..DBDT["sindent"].." "..CurrentName..ColorData["FactionSubHeader"]["end"]
+            if UpdateDatabase then
+                DBDT:Tablecheck(CurrentName,DBDT["FactionData"]["Dynamic"][PrevMainHeader],true)
+            else
+                CurrentName = ColorData["FactionSubHeader"]["start"]..DBDT["sindent"].." "..CurrentName..ColorData["FactionSubHeader"]["end"]
+                RootTable[PrevMainHeader][CurrentName] = {}
+            end
             PrevSubHeader = CurrentName
-            RootTable[PrevMainHeader][CurrentName] = {}
         elseif PrevSubHeader then
-            NameString = ColorData["FactionSubTitle"]["start"]..NameString..ColorData["FactionSubTitle"]["end"]
-            RootTable[PrevMainHeader][PrevSubHeader][NameString] = CurrentTable
+            if UpdateDatabase then
+                DBDT:Tablecheck(CurrentName,DBDT["FactionData"]["Dynamic"][PrevMainHeader],true)
+                DBDT["FactionData"]["Dynamic"][PrevMainHeader][PrevSubHeader][CurrentName] = CurrentTable
+                DBDT["FactionData"]["Lookup"][CurrentName] = CurrentTable["factionID"]
+            else
+                NameString = ColorData["FactionSubTitle"]["start"]..NameString..ColorData["FactionSubTitle"]["end"]
+                RootTable[PrevMainHeader][PrevSubHeader][NameString] = CurrentTable
+            end
         else
-            NameString = ColorData["FactionTitle"]["start"]..NameString..ColorData["FactionTitle"]["end"]
-            RootTable[PrevMainHeader][NameString] = CurrentTable
+            if UpdateDatabase then
+                DBDT:Tablecheck(CurrentName,DBDT["FactionData"]["Dynamic"][PrevMainHeader],true)
+                DBDT["FactionData"]["Dynamic"][PrevMainHeader][CurrentName] = CurrentTable
+                DBDT["FactionData"]["Lookup"][CurrentName] = CurrentTable["factionID"]
+            else
+                NameString = ColorData["FactionTitle"]["start"]..NameString..ColorData["FactionTitle"]["end"]
+                RootTable[PrevMainHeader][NameString] = CurrentTable
+            end
         end
     end
 
-    for _,v in pairs(DBDT["StringTables"]["ReputationHeaders"]) do
-        if DBDT:Nilcheck(RootTable[v]) then
-            RootTable[v] = nil
-            RootTable[ColorData["EmptyHeader"]["start"]..v..ColorData["EmptyHeader"]["end"]] = false
+    if UpdateDatabase then
+        -- Do nothing. :)
+    else
+        for _,v in pairs(DBDT["StringTables"]["ReputationHeaders"]) do
+            if DBDT:Nilcheck(RootTable[v]) then
+                RootTable[v] = nil
+                RootTable[ColorData["EmptyHeader"]["start"]..v..ColorData["EmptyHeader"]["end"]] = false
+            end
         end
     end
         
     --C_Reputation.CollapseAllFactionHeaders()
     C_Reputation.SetReputationSortType(oldSort)
-    DBDT:DBPrint(RootTable,f,f,gds(me,"GetAllKnownFactions"),f)
+    if UpdateDatabase then
+        DBDT:DBPrint(true,false,false,gds(me,"GetAllKnownFactions","Processed "..tostring(NumFactions).." factions."),false)
+    else
+        DBDT:DBPrint(RootTable,f,f,gds(me,"GetAllKnownFactions"),f)
+    end
 end
 
 function DBDT:QuestComplete(QuestID,DoPrint)
@@ -1405,7 +1794,7 @@ function DBDT:QuestComplete(QuestID,DoPrint)
         [true] = "Green",
         [false] = "Red",
     }
-    if NE(QuestID,0) then
+    if DBDT:NE(QuestID,0) then
         local QResult = C_QuestLog.IsQuestFlaggedCompleted(QuestID)
         local QName = DBDT:Nilcheck(C_QuestLog.GetTitleForQuestID(QuestID),"Unknown")
         if DBDT["PrintDebug"] then
@@ -1459,9 +1848,14 @@ function DBDT:Dump(src)
 end
 
 -- Added helper for Reload(), becuase it refues to work?
+-- Cool, it's protected. :)
+local function DoReload()
+    ReloadUI()
+end
+
 function DBDT:CallReload(WaitTime)
     WaitTime = DBDT:Numcheck(WaitTime,0.5)
-    C_Timer.After(WaitTime,ReloadUI)
+    C_Timer.After(WaitTime,DoReload)
 end
 
 -- Mainly for the future RepTracker.
@@ -1543,6 +1937,11 @@ function DBDT:ToggleConsoleKey(key)
         DBDebugTable["Console_Enabled"] = true
     end
     DBDT:DBPrint(DBDebugTable["Console_Enabled"],f,f,gds(me,"ToggleConsoleKey","Enabled:"))
+end
+
+-- Generic Item Information Generators
+function DBDT:GenericContainerItemInfo()
+    return {}
 end
 
 

@@ -8,8 +8,19 @@
 # Libraries (?)
 Libs\embeds.xml
 
+# Init
+DBDT_Init.lua
+
 # My stuff
 DBDT_Helpers.lua
 DBDT_Data.lua
 DBDT_DBCol.lua
 DBDT_Main.lua
+
+# Hooks
+Hooks\Item_Level_Change.lua
+Hooks\Item_Data_Load_Result.lua
+Hooks\Mouse_Click_Handler.lua
+
+# Injections
+Injections\Item_Tooltips.lua

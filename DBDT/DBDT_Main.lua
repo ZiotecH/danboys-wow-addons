@@ -12,6 +12,9 @@ local f = false
 local function gds(s1,a1,o1)
     return DBDT:GenDebugString(s1,a1,o1)
 end
+local function qgds(a1,o1)
+    return DBDT:GenDebugString(me,a1,o1)
+end
 -- VARIABLES
 
 local tDT = DB_Dependencies["DevTool"]
@@ -64,9 +67,11 @@ function DBDT:PrintInit()
         ["Dependencies"]    = DB_Dependencies,
         ["Debug Table"]     = DBDebugTable,
         ["Build Info"]      = DBDT["BuildInfo"],
-        ["String Tables"]   = DBDT["StringTables"],
-        ["Faction Data"]    = DBDT["FactionData"],
-        ["Constants"]       = DBDT["CONSTANTS"],
+        ["Data"] = {
+            ["String Tables"]   = DBDT["StringTables"],
+            ["Faction Data"]    = DBDT["FactionData"],
+            ["Constants"]       = DBDT["CONSTANTS"],
+        },
         ["ColorTable"]      = DBDT["ColorTable"],
     }
     if tDT then
@@ -101,31 +106,34 @@ if SlashCmdList then
         local m1 = ml[1]:lower()
         local dodb = DBDT:EQ(m1,"debug")
         local dodp = DBDT:EQ(m1,"dp")
-        local dotd = DBDT:EQ(m1,"tdebug")
+        local dotd = DBDT:EQ(m1,"tdebug") or DBDT:EQ(m1,"tdb")
         local doii = DBDT:EQ(m1,"item")
         local doqc = DBDT:EQ(m1,"quest")
+        local dotqii = DBDT:EQ(m1,"tqii")
 
         --dp({["ml"]=ml,["m1"]=m1,["dodb"]=dodb,["dodp"]=dodp,["dotd"]=dotd,["doii"]=doii,["doqc"]=doqc})
 
         if dodb then
-            DBDT:DBPrint(DBDT["DBDebugTable"],true,true,gds("DBDT","Console","Debug"))
+            DBDT:DBPrint(DBDT["DBDebugTable"],true,true,qgds("Console","Debug"))
         elseif dodp then
             dp(ml[2])
         elseif dotd then
             DBDT:TDebug()
         elseif doii then
             local IID = DBDT:Numcheck(ml[2])
-            DBDT:ItemInfo(IID)
+            DBDT:ItemInfo(IID,nil,false)
         elseif doqc then
             local QID = DBDT:Numcheck(ml[2])
             DBDT:QuestComplete(QID,true)
+        elseif dotqii then
+            DBDT:TQII()
         else
             DBDT:DBPrint(
                 {
                     ["Full Request"] = msg,
                     ["Split List"] = ml,
                 },_,_,
-                gds("Received invalid /db command")
+                qgds("Slash Commands","Received invalid /db command")
             )
     	end
     end
@@ -143,6 +151,11 @@ local function Init()
             DBDT:Report("DBDT [Init]","Updated Clique profile.","Clique")
             Clique:ImportBindings(Clique:DecodeExportString(a))
         end
+    end
+
+    for key, value in pairs(DBDT["FactionData"]["Tabards"]) do
+        DBDT:Tablecheck(value,DBDT["FactionData"]["Factions"],true)
+        DBDT["FactionData"]["Factions"][value] = DBDT:Nilcheck(C_Reputation.GetFactionDataByID(value),false)
     end
 
     -- Switch to heroic on logon
